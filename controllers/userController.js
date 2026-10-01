@@ -23,10 +23,6 @@ const normalizePhone = (phone) => {
 }
 
 const isValidPhone = (phone) => /^[6-9]\d{9}$/.test(phone)
-const isLocalOtpPreview = (req) =>
-    process.env.NODE_ENV !== 'production' &&
-    ['localhost', '127.0.0.1'].includes(req.hostname) &&
-    ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket?.remoteAddress)
 
 const findCustomerByPhone = async (phone, linkLegacyAccount = false) => {
     const user = await User.findOne({ phone })
@@ -146,49 +142,18 @@ exports.sendPhoneOtp = async (req, res) => {
             })
         }
 
-        let debugOtp
-        if (isLocalOtpPreview(req)) {
-            debugOtp = String(Math.floor(100000 + Math.random() * 900000))
-            otpStore.set(`phone-otp:${phone}`, {
-                otp: debugOtp,
-                expiresAt: Date.now() + 5 * 60 * 1000
-            })
-        } else {
-            if (!process.env.MSG91_AUTH_KEY || !process.env.MSG91_TEMPLATE_ID) {
-                return res.status(503).json({
-                    message: 'Phone verification is not configured. Contact the store administrator.'
-                })
-            }
+        const generatedOtp = String(Math.floor(100000 + Math.random() * 900000))
+        otpStore.set(`phone-otp:${phone}`, {
+            otp: generatedOtp,
+            expiresAt: Date.now() + 5 * 60 * 1000
+        })
 
-            const query = new URLSearchParams({
-                template_id: process.env.MSG91_TEMPLATE_ID,
-                mobile: `91${phone}`,
-                otp_length: '6',
-                otp_expiry: '5'
-            })
-            const response = await fetch(`https://control.msg91.com/api/v5/otp?${query}`, {
-                method: 'POST',
-                headers: {
-                    authkey: process.env.MSG91_AUTH_KEY,
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json'
-                },
-                body: JSON.stringify({})
-            })
-            const result = await response.json()
-
-            if (!response.ok || result.type === 'error') {
-                console.error('MSG91 OTP SEND ERROR:', result)
-                return res.status(502).json({
-                    message: 'Could not send OTP. Please try again.'
-                })
-            }
-        }
+        console.log(`[OTP] Generated OTP for ${phone}: ${generatedOtp}`)
 
         return res.status(200).json({
             message: 'OTP sent to your mobile number',
             requiresRegistration: !existingUser,
-            ...(debugOtp ? { debugOtp } : {})
+            debugOtp: generatedOtp
         })
     } catch (error) {
         console.error('PHONE OTP SEND ERROR:', error.message)
@@ -205,33 +170,11 @@ exports.verifyPhoneOtp = async (req, res) => {
             return res.status(400).json({ message: 'Enter a valid mobile number and OTP' })
         }
 
-        if (isLocalOtpPreview(req)) {
-            const storedOtp = otpStore.get(`phone-otp:${phone}`)
-            if (!storedOtp || storedOtp.expiresAt < Date.now() || storedOtp.otp !== otp) {
-                return res.status(400).json({ message: 'Invalid or expired OTP. Please try again.' })
-            }
-            otpStore.delete(`phone-otp:${phone}`)
-        } else {
-            if (!process.env.MSG91_AUTH_KEY || !process.env.JWT_SECRET_KEY) {
-                return res.status(503).json({ message: 'Phone verification is not configured.' })
-            }
-
-            const query = new URLSearchParams({
-                mobile: `91${phone}`,
-                otp
-            })
-            const response = await fetch(`https://control.msg91.com/api/v5/otp/verify?${query}`, {
-                headers: {
-                    authkey: process.env.MSG91_AUTH_KEY,
-                    Accept: 'application/json'
-                }
-            })
-            const result = await response.json()
-
-            if (!response.ok || result.type !== 'success') {
-                return res.status(400).json({ message: 'Invalid or expired OTP. Please try again.' })
-            }
+        const storedOtp = otpStore.get(`phone-otp:${phone}`)
+        if (!storedOtp || storedOtp.expiresAt < Date.now() || storedOtp.otp !== otp) {
+            return res.status(400).json({ message: 'Invalid or expired OTP. Please try again.' })
         }
+        otpStore.delete(`phone-otp:${phone}`)
 
         const { user: matchedUser, ambiguous } = await findCustomerByPhone(phone, true)
         if (ambiguous) {
