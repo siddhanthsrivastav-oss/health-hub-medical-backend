@@ -143,3 +143,39 @@ exports.resetPasswordAdmin = async (req, res) => {
         res.status(500).json({ message: 'Could not reset admin password' })
     }
 }
+
+exports.setupInitialAdmin = async (req, res) => {
+    try {
+        const count = await Admin.countDocuments()
+        if (count > 0) {
+            return res.status(403).json({
+                message: 'Admin setup is already completed. Please login.'
+            })
+        }
+
+        const name = String(req.body.name || 'Super Admin').trim()
+        const email = normalizeEmail(req.body.email)
+        const { password } = req.body
+
+        if (!email || !/^\S+@\S+\.\S+$/.test(email) || typeof password !== 'string' || password.length < 8) {
+            return res.status(400).json({
+                message: 'Valid email and a password of at least 8 characters are required'
+            })
+        }
+
+        const admin = await Admin.create({
+            name,
+            email,
+            password: await bcrypt.hash(password, 12),
+            role: 'superadmin'
+        })
+
+        res.status(201).json({
+            message: 'Super Admin created successfully!',
+            adminData: { name: admin.name, email: admin.email, role: admin.role }
+        })
+    } catch (error) {
+        console.error('ADMIN SETUP ERROR:', error.message)
+        res.status(500).json({ message: 'Error during admin setup' })
+    }
+}

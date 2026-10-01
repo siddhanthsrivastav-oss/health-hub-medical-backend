@@ -5,7 +5,8 @@ const {
     forgotPasswordAdmin,
     getAdmins,
     loginAdmin,
-    resetPasswordAdmin
+    resetPasswordAdmin,
+    setupInitialAdmin
 } = require('../controllers/adminController')
 const auth = require('../middleware/auth')
 const superAdminOnly = require('../middleware/superAdminOnly')
@@ -19,6 +20,7 @@ const loginRateLimit = rateLimit({
     message: { message: 'Too many attempts. Please try again later.' }
 })
 
+adminRouter.post('/setup', setupInitialAdmin)
 adminRouter.post('/login', loginRateLimit, loginAdmin)
 adminRouter.post('/forgot-password', loginRateLimit, forgotPasswordAdmin)
 adminRouter.post('/reset-password', loginRateLimit, resetPasswordAdmin)
