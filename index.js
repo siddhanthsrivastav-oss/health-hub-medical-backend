@@ -28,10 +28,10 @@ app.post(
 const allowedOrigins = new Set(
   (
     process.env.CORS_ORIGINS ||
-    'http://localhost:5175,http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174,https://health-hub-medical-website-mrfy-jxn8ajibo-sundram4.vercel.app/'
+    'http://localhost:5175,http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174,https://health-hub-medical-website-mrfy-jxn8ajibo-sundram4.vercel.app'
   )
     .split(',')
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
     .filter(Boolean)
 )
 
@@ -44,12 +44,28 @@ app.use(express.json({ limit: '1mb' }))
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin)) {
+      if (!origin) {
         return callback(null, true)
       }
 
+      const cleanOrigin = origin.trim().replace(/\/+$/, '')
+
+      if (allowedOrigins.has(cleanOrigin)) {
+        return callback(null, true)
+      }
+
+      try {
+        const parsed = new URL(cleanOrigin)
+        if (parsed.hostname.endsWith('.vercel.app')) {
+          return callback(null, true)
+        }
+      } catch (e) {
+        // ignore invalid origin parse
+      }
+
       return callback(new Error('Origin is not allowed by CORS'))
-    }
+    },
+    credentials: true
   })
 )
 
