@@ -1,3 +1,10 @@
+const dns = require('dns')
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4'])
+} catch (e) {
+  // Ignore if not supported in environment
+}
+
 const express = require('express')
 const mongoose = require('mongoose')
 const cors = require('cors')
