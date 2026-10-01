@@ -28,7 +28,7 @@ app.post(
 const allowedOrigins = new Set(
   (
     process.env.CORS_ORIGINS ||
-    'http://localhost:5175,http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174'
+    'http://localhost:5175,http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174,https://health-hub-medical-website-mrfy-jxn8ajibo-sundram4.vercel.app/'
   )
     .split(',')
     .map((origin) => origin.trim())
